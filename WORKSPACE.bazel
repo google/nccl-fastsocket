@@ -1,0 +1,21 @@
+workspace(name = "fastsocket")
+
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
+
+# NCCL
+maybe(
+    new_git_repository,
+    name = "nccl",
+    build_file = "//:bazel/nccl/BUILD.bazel",
+    remote = "https://github.com/NVIDIA/nccl.git",
+    tag = "v2.9.8-1",
+)
+
+# CUDA
+maybe(
+    new_local_repository,
+    name = "local_config_cuda",
+    build_file = "//:bazel/cuda/BUILD.bazel",
+    path = "/usr/local/cuda",
+)

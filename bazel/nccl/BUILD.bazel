@@ -1,0 +1,45 @@
+genrule(
+    name = "gen_nccl_h",
+    srcs = [
+        "src/nccl.h.in",
+    ],
+    outs = [
+        "src/nccl.h",
+    ],
+    cmd = "cp $< $@",
+)
+
+cc_library(
+    name = "src_hdrs",
+    hdrs = [
+        "src/nccl.h",
+    ],
+    includes = ["src"],
+    deps = [
+        "@local_config_cuda//:cuda_headers",
+    ],
+)
+
+cc_library(
+    name = "include_hdrs",
+    hdrs = glob([
+        "src/include/*.h",
+        "src/include/*.hpp",
+    ]),
+    includes = ["src/include"],
+    deps = [
+        ":src_hdrs",
+    ],
+)
+
+cc_library(
+    name = "plugin_lib",
+    srcs = [
+        "src/debug.cc",
+        "src/misc/utils.cc",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":include_hdrs",
+    ],
+)
