@@ -9,7 +9,7 @@ maybe(
     name = "nccl",
     build_file = "//:bazel/nccl/BUILD.bazel",
     remote = "https://github.com/NVIDIA/nccl.git",
-    tag = "v2.9.8-1",
+    tag = "v2.10.3-1",
 )
 
 # CUDA

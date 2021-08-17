@@ -138,10 +138,10 @@ NCCL_PARAM(TxCPUStart, "TX_CPU_START", -2);
 NCCL_PARAM(RxCPUStart, "RX_CPU_START", -2);
 NCCL_PARAM(QueueSkip, "QUEUE_SKIP", 0);
 
-static ncclResult_t socketSpin(int op, int fd, void* ptr, int size,
-                               int* offset) {
+static ncclResult_t socketSpin(int op, int fd, union socketAddress* addr,
+                               void* ptr, int size, int* offset) {
   while (*offset < size)
-    NCCLCHECK(socketProgressOpt(op, fd, ptr, size, offset, 0));
+    NCCLCHECK(socketProgressOpt(op, fd, addr, ptr, size, offset, 0));
   return ncclSuccess;
 }
 
@@ -312,11 +312,14 @@ struct ncclSocketTaskQueue
 template <unsigned BUF_SIZE>
 struct ncclBufferedSendSocket {
   ncclBufferedSendSocket() : fd(-1), cur(0) {}
-  void setFd(int fileFd) { fd = fileFd; }
+  void setFd(int fileFd, union socketAddress* connectAddr) {
+    fd = fileFd;
+    addr = connectAddr;
+  }
   ncclResult_t sync() {
     if (cur == 0) return ncclSuccess;
     int off = 0;
-    NCCLCHECK(socketSpin(NCCL_SOCKET_SEND, fd, buf, cur, &off));
+    NCCLCHECK(socketSpin(NCCL_SOCKET_SEND, fd, addr, buf, cur, &off));
     cur = 0;
     return ncclSuccess;
   }
@@ -330,18 +333,22 @@ struct ncclBufferedSendSocket {
 
   int fd;
   int cur;
+  union socketAddress* addr;
   char buf[BUF_SIZE];
 };
 
 template <unsigned BUF_SIZE>
 struct ncclBufferedRecvSocket {
   ncclBufferedRecvSocket() : fd(-1), cur(0), end(0) {}
-  void setFd(int fileFd) { fd = fileFd; }
+  void setFd(int fileFd, union socketAddress* connectAddr) {
+    fd = fileFd;
+    addr = connectAddr;
+  }
   bool empty() { return cur == end; }
   ncclResult_t refill() {
     if (!empty()) return ncclSuccess;
     cur = end = 0;
-    return socketProgress(NCCL_SOCKET_RECV, fd, buf, BUF_SIZE, &end);
+    return socketProgress(NCCL_SOCKET_RECV, fd, addr, buf, BUF_SIZE, &end);
   }
   ncclResult_t recv(void* ptr, int s) {
     while (s) {
@@ -364,6 +371,7 @@ struct ncclBufferedRecvSocket {
   int fd;
   int cur;
   int end;
+  union socketAddress* addr;
   char buf[BUF_SIZE];
 };
 
@@ -526,9 +534,10 @@ ncclResult_t ncclFastSocketInit(ncclDebugLogger_t logFunction) {
                  sizeof(union socketAddress));
           NCCLCHECK(ncclFastSocketGetPciPath(kNcclSocketDevs[i].dev_name,
                                              &kNcclSocketDevs[i].pci_path));
-          snprintf(line + strlen(line), 2047 - strlen(line), " [%d]%s:%s", i,
-                   names + i * MAX_IF_NAME_SIZE,
-                   socketToString(&addrs[i].sa, addrline));
+          snprintf(
+              line + strlen(line), 2047 - strlen(line), " [%d]%s:%s", i,
+              names + i * MAX_IF_NAME_SIZE,
+              socketToString((union socketAddress*)&addrs[i].sa, addrline));
         }
         line[2047] = '\0';
         INFO(NCCL_INIT | NCCL_NET, "NET/FastSocket : Using%s", line);
@@ -666,8 +675,8 @@ ncclResult_t ncclFastSocketListen(int dev, void* opaqueHandle,
 static void initCtrlFd(struct ncclFastSocketComm* comm, int fd) {
   comm->ctrl_fd = fd;
 #ifdef BUFFERED_CTRL
-  comm->ctrl_send.setFd(fd);
-  comm->ctrl_recv.setFd(fd);
+  comm->ctrl_send.setFd(fd, &comm->connect_addr);
+  comm->ctrl_recv.setFd(fd, &comm->connect_addr);
 #endif
 }
 
@@ -686,7 +695,8 @@ ncclResult_t ncclSocketAsyncConnectV2(struct ncclFastSocketComm* comm) {
     if (i == comm->num_socks) {
       int ii = 0;
       offset = 0;
-      NCCLCHECK(socketWait(NCCL_SOCKET_RECV, tmpFd, &ii, sizeof(int), &offset));
+      NCCLCHECK(socketWait(NCCL_SOCKET_RECV, tmpFd, &comm->connect_addr, &ii,
+                           sizeof(int), &offset));
       initCtrlFd(comm, tmpFd);
     } else {
       int qid, dqid;
@@ -724,11 +734,11 @@ ncclResult_t ncclSocketAsyncConnectV2(struct ncclFastSocketComm* comm) {
       }
 
       offset = 0;
-      NCCLCHECK(
-          socketWait(NCCL_SOCKET_RECV, tmpFd, &rqid, sizeof(int), &offset));
+      NCCLCHECK(socketWait(NCCL_SOCKET_RECV, tmpFd, &comm->connect_addr, &rqid,
+                           sizeof(int), &offset));
       offset = 0;
-      NCCLCHECK(
-          socketWait(NCCL_SOCKET_SEND, tmpFd, &qid, sizeof(int), &offset));
+      NCCLCHECK(socketWait(NCCL_SOCKET_SEND, tmpFd, &comm->connect_addr, &qid,
+                           sizeof(int), &offset));
       if (qid < 0 || rqid < 0) {
         close(tmpFd);
         ++retry;
@@ -801,7 +811,9 @@ ncclResult_t ncclSocketAcceptV2(void* listenComm, void** recvComm) {
                 "accept", tmpFd);
     if (i == rComm->num_socks) {
       offset = 0;
-      NCCLCHECK(socketWait(NCCL_SOCKET_SEND, tmpFd, &i, sizeof(int), &offset));
+      NCCLCHECK(socketWait(NCCL_SOCKET_SEND, tmpFd,
+                           (union socketAddress*)&sockaddr, &i, sizeof(int),
+                           &offset));
       initCtrlFd(rComm, tmpFd);
     } else {
       unsigned cpu = 0;
@@ -837,12 +849,14 @@ ncclResult_t ncclSocketAcceptV2(void* listenComm, void** recvComm) {
       }
 
       offset = 0;
-      NCCLCHECK(
-          socketWait(NCCL_SOCKET_SEND, tmpFd, &qid, sizeof(int), &offset));
+      NCCLCHECK(socketWait(NCCL_SOCKET_SEND, tmpFd,
+                           (union socketAddress*)&sockaddr, &qid, sizeof(int),
+                           &offset));
       rqid = 0;
       offset = 0;
-      NCCLCHECK(
-          socketWait(NCCL_SOCKET_RECV, tmpFd, &rqid, sizeof(int), &offset));
+      NCCLCHECK(socketWait(NCCL_SOCKET_RECV, tmpFd,
+                           (union socketAddress*)&sockaddr, &rqid, sizeof(int),
+                           &offset));
       if (qid < 0 || rqid < 0) {
         close(tmpFd);
         ++retry;
@@ -887,7 +901,8 @@ ncclResult_t ncclFastSocketConnect(int dev, void* opaqueHandle,
   for (int i = 0; i < comm->num_socks + 1; i++) {
     int tmpFd, offset = 0;
     NCCLCHECK(connectAddress(&tmpFd, &handle->connect_addr));
-    NCCLCHECK(socketWait(NCCL_SOCKET_SEND, tmpFd, &i, sizeof(int), &offset));
+    NCCLCHECK(socketWait(NCCL_SOCKET_SEND, tmpFd, &handle->connect_addr, &i,
+                         sizeof(int), &offset));
     if (i == comm->num_socks) {
       initCtrlFd(comm, tmpFd);
     } else {
@@ -920,8 +935,9 @@ ncclResult_t ncclFastSocketAccept(void* listenComm, void** recvComm) {
     socklen_t socklen = sizeof(struct sockaddr_in);
     SYSCHECKVAL(accept(lComm->fd, (struct sockaddr*)&sockaddr, &socklen),
                 "accept", tmpFd);
-    NCCLCHECK(socketWait(NCCL_SOCKET_RECV, tmpFd, &sendSockIdx, sizeof(int),
-                         &offset));
+    NCCLCHECK(socketWait(NCCL_SOCKET_RECV, tmpFd,
+                         (union socketAddress*)&sockaddr, &sendSockIdx,
+                         sizeof(int), &offset));
     if (sendSockIdx == rComm->num_socks) {
       initCtrlFd(rComm, tmpFd);
     } else {
@@ -1341,8 +1357,8 @@ static ncclResult_t ncclCommProgress(struct ncclFastSocketComm* comm) {
         if (ar->size > 0) {
           int off = 0;
           // send data through control socket
-          NCCLCHECK(socketSpin(NCCL_SOCKET_SEND, comm->ctrl_fd, ar->data,
-                               ar->size, &off));
+          NCCLCHECK(socketSpin(NCCL_SOCKET_SEND, comm->ctrl_fd,
+                               &comm->connect_addr, ar->data, ar->size, &off));
           ar->offset = ar->size;
           ar->size_pending = 0;
         }
@@ -1377,8 +1393,9 @@ static ncclResult_t ncclCommProgress(struct ncclFastSocketComm* comm) {
 #ifdef BUFFERED_CTRL
             ar->offset = comm->ctrl_recv.brecv(ar->data, ar->size);
 #endif
-            NCCLCHECK(socketSpin(NCCL_SOCKET_RECV, comm->ctrl_fd, ar->data,
-                                 ar->size, &ar->offset));
+            NCCLCHECK(socketSpin(NCCL_SOCKET_RECV, comm->ctrl_fd,
+                                 &comm->connect_addr, ar->data, ar->size,
+                                 &ar->offset));
             ar->size_pending = 0;
           }
           comm->rq.mark_inactive();
