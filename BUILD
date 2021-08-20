@@ -12,6 +12,7 @@ cc_library(
     ],
     hdrs = [
         "compat.h",
+        "utilities.h",
     ],
     # Export the symbol containing the NCCL plugin vtable so it can be
     # loaded at runtime via dlopen + dlsym. This means we also need to
