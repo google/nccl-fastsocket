@@ -1,3 +1,5 @@
+load("@rules_pkg//:pkg.bzl", "pkg_deb", "pkg_tar")
+
 # Dual-licensed, using the least restrictive per go/thirdpartylicenses#same
 licenses(["notice"])
 
@@ -36,4 +38,45 @@ cc_binary(
     deps = [
         ":plugin",
     ],
+)
+
+genrule(
+    name = "gen_triggers",
+    outs = ["triggers"],
+    cmd = "echo 'activate-noawait ldconfig' > $@",
+)
+
+pkg_deb(
+    name = "package-deb",
+    architecture = "amd64",
+    data = ":tarball",
+    description = "Fast Socket for NCCL 2",
+    maintainer = "Chang Lan <changlan@google.com>",
+    package = "google-fast-socket",
+    recommends = ["libnccl2"],
+    triggers = ":gen_triggers",
+    version = "0.0.4",
+)
+
+pkg_tar(
+    name = "tarball",
+    extension = "tar.gz",
+    deps = [
+        ":doc",
+        ":lib",
+    ],
+)
+
+pkg_tar(
+    name = "lib",
+    srcs = [":libnccl-net.so"],
+    mode = "0644",
+    package_dir = "/usr/lib/",
+)
+
+pkg_tar(
+    name = "doc",
+    srcs = [":LICENSE"],
+    mode = "0644",
+    package_dir = "/usr/share/doc/google-fast-socket/",
 )
