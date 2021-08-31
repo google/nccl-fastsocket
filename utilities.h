@@ -15,7 +15,7 @@
 
 #include "nccl_net.h"
 
-static ncclDebugLogger_t nccl_log_func;
+extern ncclDebugLogger_t nccl_log_func;
 
 #define WARN(fmt, ...)                                                  \
   (*nccl_log_func)(NCCL_LOG_WARN, NCCL_ALL, __PRETTY_FUNCTION__,        \
@@ -89,6 +89,31 @@ int64_t ncclParam##name() { \
     return res; \
   } \
 } while (0);
+
+static __inline__ int ncclTypeSize(ncclDataType_t type) {
+  switch (type) {
+    case ncclInt8:
+    case ncclUint8:
+      return 1;
+    case ncclFloat16:
+#if defined(__CUDA_BF16_TYPES_EXIST__)
+    case ncclBfloat16:
+#endif
+      return 2;
+    case ncclInt32:
+    case ncclUint32:
+    case ncclFloat32:
+      return 4;
+    case ncclInt64:
+    case ncclUint64:
+    case ncclFloat64:
+      return 8;
+    default:
+      return -1;
+  }
+}
+
+#define DIVUP(x, y) (((x) + (y)-1) / (y))
 
 #include <malloc.h>
 
@@ -202,6 +227,11 @@ static inline const char *socketToString(struct sockaddr *saddr, char *buf) {
   (void) getnameinfo(saddr, sizeof(union socketAddress), host, NI_MAXHOST, service, NI_MAXSERV, NI_NUMERICHOST|NI_NUMERICSERV);
   sprintf(buf, "%s<%s>", host, service);
   return buf;
+}
+
+static inline const char* socketToString(union socketAddress* saddr,
+                                         char* buf) {
+  return socketToString(&saddr->sa, buf);
 }
 
 static inline uint16_t socketToPort(struct sockaddr *saddr) {
@@ -587,14 +617,26 @@ static ncclResult_t socketProgressOpt(int op, int fd, void* ptr, int size, int* 
   return ncclSuccess;
 }
 
-static ncclResult_t socketProgress(int op, int fd, void* ptr, int size, int* offset) {
+static ncclResult_t socketProgress(int op, int fd, void* ptr, int size,
+                                   int* offset) {
   return socketProgressOpt(op, fd, ptr, size, offset, 0);
 }
 
-static ncclResult_t socketWait(int op, int fd, void* ptr, int size, int* offset) {
+static ncclResult_t socketProgress(int op, int fd, union socketAddress* addr,
+                                   void* ptr, int size, int* offset) {
+  return socketProgress(op, fd, ptr, size, offset);
+}
+
+static ncclResult_t socketWait(int op, int fd, void* ptr, int size,
+                               int* offset) {
   while (*offset < size)
     NCCLCHECK(socketProgressOpt(op, fd, ptr, size, offset, 1));
   return ncclSuccess;
+}
+
+static ncclResult_t socketWait(int op, int fd, union socketAddress* addr,
+                               void* ptr, int size, int* offset) {
+  return socketWait(op, fd, ptr, size, offset);
 }
 
 static ncclResult_t socketSend(int fd, void* ptr, int size) {
@@ -603,10 +645,20 @@ static ncclResult_t socketSend(int fd, void* ptr, int size) {
   return ncclSuccess;
 }
 
+static ncclResult_t socketSend(int fd, union socketAddress* addr, void* ptr,
+                               int size) {
+  return socketSend(fd, ptr, size);
+}
+
 static ncclResult_t socketRecv(int fd, void* ptr, int size) {
   int offset = 0;
   NCCLCHECK(socketWait(NCCL_SOCKET_RECV, fd, ptr, size, &offset));
   return ncclSuccess;
+}
+
+static ncclResult_t socketRecv(int fd, union socketAddress* addr, void* ptr,
+                               int size) {
+  return socketRecv(fd, ptr, size);
 }
 
 #endif  // THIRD_PARTY_GPUS_NCCL_FASTSOCKET_PLUGIN_UTIL_H_
