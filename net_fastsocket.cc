@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <unistd.h>
 
 #include <algorithm>
@@ -77,6 +78,8 @@
 
 #define NCCL_SOCKET_SEND 0
 #define NCCL_SOCKET_RECV 1
+
+#define HINT_BOTTLENECK
 
 // Global variables
 static int kNcclNetIfs = -1;
@@ -397,6 +400,10 @@ struct ncclFastSocketComm {
   ncclBufferedRecvSocket<CTRL_BUFFER_SIZE> ctrl_recv;
 #endif
 
+#ifdef HINT_BOTTLENECK
+  struct timeval start_time;
+#endif
+
   // helper threads
   pthread_t helper_thread[MAX_THREADS];
   pthread_t connect_thread;
@@ -629,6 +636,7 @@ ncclResult_t ncclFastSocketNewComm(struct ncclFastSocketComm** comm) {
     (*comm)->fd_data[i].tx_lower = 0;
 #endif
   }
+  gettimeofday(&(*comm)->start_time, nullptr);
   return ncclSuccess;
 }
 
@@ -966,6 +974,22 @@ ncclResult_t ncclFastSocketClose(void* opaqueComm) {
       }
     }
     INFO(NCCL_NET, "All bytes: %lu", total);
+#ifdef HINT_BOTTLENECK
+    struct timeval current_time;
+    gettimeofday(&current_time, nullptr);
+    timersub(&current_time, &comm->start_time, &current_time);
+    double avg_throughput_mb =
+        (double)total / (1e6 * current_time.tv_sec + current_time.tv_usec);
+    if (avg_throughput_mb > 1000) {
+      INFO(NCCL_INIT, "Average throughput: %f MB/s", avg_throughput_mb);
+      INFO(NCCL_INIT,
+           "This training job might be network bound. Reduction Server boosts "
+           "performance of network bound training jobs. "
+           "More details at "
+           "https://cloud.google.com/blog/products/ai-machine-learning/"
+           "faster-distributed-training-with-google-clouds-reduction-server.");
+    }
+#endif
     free(comm);
   }
   return ncclSuccess;

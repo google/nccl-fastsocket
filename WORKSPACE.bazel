@@ -25,7 +25,7 @@ maybe(
 http_archive(
     name = "rules_pkg",
     url = "https://github.com/bazelbuild/rules_pkg/archive/main.zip",
-    strip_prefix = "rules_pkg-main/pkg",
+    strip_prefix = "rules_pkg-main",
 )
 
 load("@rules_pkg//:deps.bzl", "rules_pkg_dependencies")

@@ -69,7 +69,7 @@ pkg_deb(
     package = "google-fast-socket",
     recommends = ["libnccl2"],
     triggers = ":gen_triggers",
-    version = "0.0.4",
+    version = "0.0.5",
 )
 
 pkg_tar(
