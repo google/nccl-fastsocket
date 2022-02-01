@@ -1394,7 +1394,7 @@ static ncclResult_t ncclCommProgress(struct ncclFastSocketComm* comm) {
     }
     NCCLCHECK(ncclCtrlSendSync(comm));
   } else {
-    while (ar->offset < ar->size) {
+    do {
       ncclCtrl ctrl;
       if (!CTRL_DONE(ar)) {
         NCCLCHECK(ncclCtrlRecv(comm, ar, &ctrl));
@@ -1419,7 +1419,7 @@ static ncclResult_t ncclCommProgress(struct ncclFastSocketComm* comm) {
       // uint32_t recv_size = std::min(dynamic_chunk_size, ar->size -
       // ar->offset);
       enqueueTask(comm, ar);
-    }
+    } while (ar->offset < ar->size);
   }
 
   return ncclSuccess;
