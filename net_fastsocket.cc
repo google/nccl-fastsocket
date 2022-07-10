@@ -1447,24 +1447,6 @@ ncclResult_t ncclFastSocketTest(void* request, int* done, int* size) {
   return ncclSuccess;
 }
 
-ncclResult_t ncclFastSocketIsend(void* sendComm, void* data, int size,
-                                 void* mhandle, void** request) {
-  struct ncclFastSocketComm* comm =
-      static_cast<struct ncclFastSocketComm*>(sendComm);
-  NCCLCHECK(ncclFastSocketGetRequest(comm, NCCL_SOCKET_SEND, data, size,
-                                     (struct ncclSocketRequest**)request));
-  return ncclSuccess;
-}
-
-ncclResult_t ncclFastSocketIrecv(void* recvComm, void* data, int size,
-                                 void* mhandle, void** request) {
-  struct ncclFastSocketComm* comm =
-      static_cast<struct ncclFastSocketComm*>(recvComm);
-  NCCLCHECK(ncclFastSocketGetRequest(comm, NCCL_SOCKET_RECV, data, size,
-                                     (struct ncclSocketRequest**)request));
-  return ncclSuccess;
-}
-
 static ncclResult_t ncclSocketGetSpeed(char* devName, int* speed) {
   *speed = 0;
   char speedPath[PATH_MAX];
@@ -1485,7 +1467,8 @@ static ncclResult_t ncclSocketGetSpeed(char* devName, int* speed) {
   return ncclSuccess;
 }
 
-ncclResult_t ncclFastSocketGetProperties(int dev, ncclNetProperties_t* props) {
+template <typename T>
+ncclResult_t ncclFastSocketGetProperties(int dev, T* props) {
   props->name = kNcclSocketDevs[dev].dev_name;
   props->pciPath = kNcclSocketDevs[dev].pci_path;
   props->guid = dev;
@@ -1493,6 +1476,10 @@ ncclResult_t ncclFastSocketGetProperties(int dev, ncclNetProperties_t* props) {
   NCCLCHECK(ncclSocketGetSpeed(props->name, &props->speed));
   props->port = 0;
   props->maxComms = 65536;
+  if constexpr (std::is_same<T, ncclNetProperties_v5_t>::value) {
+    props->latency = 0;
+    props->maxRecvs = 1;
+  }
   return ncclSuccess;
 }
 
@@ -1505,8 +1492,59 @@ ncclResult_t ncclFastSocketDeregMr(void* comm, void* mhandle) {
   return ncclSuccess;
 }
 
-ncclResult_t ncclFastSocketIflush(void* recvComm, void* data, int size,
-                                  void* mhandle, void** request) {
+ncclResult_t ncclFastSocketFlush_v2(void* recvComm, void* data, int size,
+                                    void* mhandle) {
+  // We don't support CUDA pointers, so we don't need a flush operation
+  return ncclInternalError;
+}
+
+ncclResult_t ncclFastSocketIsend_v2(void* sendComm, void* data, int size,
+                                    void* mhandle, void** request) {
+  struct ncclFastSocketComm* comm =
+      static_cast<struct ncclFastSocketComm*>(sendComm);
+  NCCLCHECK(ncclFastSocketGetRequest(comm, NCCL_SOCKET_SEND, data, size,
+                                     (struct ncclSocketRequest**)request));
+  return ncclSuccess;
+}
+
+ncclResult_t ncclFastSocketIrecv_v2(void* recvComm, void* data, int size,
+                                    void* mhandle, void** request) {
+  struct ncclFastSocketComm* comm =
+      static_cast<struct ncclFastSocketComm*>(recvComm);
+  NCCLCHECK(ncclFastSocketGetRequest(comm, NCCL_SOCKET_RECV, data, size,
+                                     (struct ncclSocketRequest**)request));
+  return ncclSuccess;
+}
+
+ncclResult_t ncclFastSocketIflush_v4(void* recvComm, void* data, int size,
+                                     void* mhandle, void** request) {
+  // We don't support CUDA pointers, so we don't need a flush operation
+  return ncclInternalError;
+}
+
+ncclResult_t ncclFastSocketIsend_v5(void* sendComm, void* data, int size,
+                                    int tag, void* mhandle, void** request) {
+  struct ncclFastSocketComm* comm =
+      static_cast<struct ncclFastSocketComm*>(sendComm);
+  NCCLCHECK(ncclFastSocketGetRequest(comm, NCCL_SOCKET_SEND, data, size,
+                                     (struct ncclSocketRequest**)request));
+  return ncclSuccess;
+}
+
+ncclResult_t ncclFastSocketIrecv_v5(void* recvComm, int n, void** data,
+                                    int* sizes, int* tags, void** mhandles,
+                                    void** request) {
+  struct ncclFastSocketComm* comm =
+      static_cast<struct ncclFastSocketComm*>(recvComm);
+  if (n != 1) return ncclInternalError;
+  NCCLCHECK(ncclFastSocketGetRequest(comm, NCCL_SOCKET_RECV, data[0], sizes[0],
+                                     (struct ncclSocketRequest**)request));
+  return ncclSuccess;
+}
+
+ncclResult_t ncclFastSocketIflush_v5(void* recvComm, int n, void** data,
+                                     int* sizes, void** mhandle,
+                                     void** request) {
   // We don't support CUDA pointers, so we don't need a flush operation
   return ncclInternalError;
 }
@@ -1521,11 +1559,21 @@ ncclResult_t ncclFastSocketCloseListen(void* opaqueComm) {
 }
 
 volatile ncclNet_v4_t ncclNetPlugin_v4 = {
-    "FastSocket",          ncclFastSocketInit,
-    ncclFastSocketDevices, ncclFastSocketGetProperties,
-    ncclFastSocketListen,  ncclFastSocketConnect,
-    ncclFastSocketAccept,  ncclFastSocketRegMr,
-    ncclFastSocketDeregMr, ncclFastSocketIsend,
-    ncclFastSocketIrecv,   ncclFastSocketIflush,
-    ncclFastSocketTest,    ncclFastSocketClose,
-    ncclFastSocketClose,   ncclFastSocketCloseListen};
+    "FastSocket",           ncclFastSocketInit,
+    ncclFastSocketDevices,  ncclFastSocketGetProperties<ncclNetProperties_v4_t>,
+    ncclFastSocketListen,   ncclFastSocketConnect,
+    ncclFastSocketAccept,   ncclFastSocketRegMr,
+    ncclFastSocketDeregMr,  ncclFastSocketIsend_v2,
+    ncclFastSocketIrecv_v2, ncclFastSocketIflush_v4,
+    ncclFastSocketTest,     ncclFastSocketClose,
+    ncclFastSocketClose,    ncclFastSocketCloseListen};
+
+volatile ncclNet_v5_t ncclNetPlugin_v5 = {
+    "FastSocket",           ncclFastSocketInit,
+    ncclFastSocketDevices,  ncclFastSocketGetProperties<ncclNetProperties_v5_t>,
+    ncclFastSocketListen,   ncclFastSocketConnect,
+    ncclFastSocketAccept,   ncclFastSocketRegMr,
+    ncclFastSocketDeregMr,  ncclFastSocketIsend_v5,
+    ncclFastSocketIrecv_v5, ncclFastSocketIflush_v5,
+    ncclFastSocketTest,     ncclFastSocketClose,
+    ncclFastSocketClose,    ncclFastSocketCloseListen};
