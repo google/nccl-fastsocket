@@ -30,6 +30,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstring>
 
 #include "nccl_net.h"
 #include "compat.h"
@@ -474,6 +475,12 @@ ncclResult_t ncclFastSocketPciPath(int dev, char** pciPath) {
 ncclResult_t ncclFastSocketInit(ncclDebugLogger_t logFunction) {
   int enable = ncclParamEnableFastSocket();
   nccl_log_func = logFunction;
+#ifdef CHECK_COLLNET_ENABLE
+  char *collnet_enable = getenv("NCCL_COLLNET_ENABLE");
+  if (!collnet_enable || strcmp(collnet_enable, "0") == 0) {
+    enable = 0;
+  }
+#endif
   if (!enable) {
     INFO(NCCL_NET | NCCL_INIT, "NET/FastSocket disabled");
     return ncclInternalError;

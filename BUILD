@@ -46,6 +46,32 @@ cc_library(
     alwayslink = 1,
 )
 
+cc_library(
+    name = "collnet_plugin",
+    srcs = [
+        "compat.cc",
+        "net_fastsocket.cc",
+    ],
+    hdrs = [
+        "compat.h",
+    ],
+    # Export the symbol containing the NCCL plugin vtable so it can be
+    # loaded at runtime via dlopen + dlsym. This means we also need to
+    # always link this library, otherwise it'll be dropped at build time.
+    linkopts = [
+        "-Wl,--export-dynamic-symbol=ncclNetPlugin_v4",
+        "-Wl,--export-dynamic-symbol=ncclNetPlugin_v3",
+        "-Wl,--export-dynamic-symbol=ncclNetPlugin_v2",
+    ],
+    local_defines = ["CHECK_COLLNET_ENABLE"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":nccl_utilities",
+        "@nccl//:plugin_lib",
+    ],
+    alwayslink = 1,
+)
+
 cc_binary(
     name = "libnccl-net.so",
     linkshared = True,
