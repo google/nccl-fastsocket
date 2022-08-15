@@ -276,12 +276,8 @@ struct ncclSocketRequestQueue
   ncclSocketRequestQueue() : Base() {}
   bool has_active() { return has<REQUEST_ACTIVE>(); }
   bool has_inactive() { return has<REQUEST_INACTIVE>(); }
-  struct ncclSocketRequest* next_free() {
-    return first<REQUEST_FREE>();
-  }
-  struct ncclSocketRequest* next_active() {
-    return first<REQUEST_ACTIVE>();
-  }
+  struct ncclSocketRequest* next_free() { return first<REQUEST_FREE>(); }
+  struct ncclSocketRequest* next_active() { return first<REQUEST_ACTIVE>(); }
   struct ncclSocketRequest* next_inactive() {
     return first<REQUEST_INACTIVE>();
   }
@@ -476,7 +472,7 @@ ncclResult_t ncclFastSocketInit(ncclDebugLogger_t logFunction) {
   int enable = ncclParamEnableFastSocket();
   nccl_log_func = logFunction;
 #ifdef CHECK_COLLNET_ENABLE
-  char *collnet_enable = getenv("NCCL_COLLNET_ENABLE");
+  char* collnet_enable = getenv("NCCL_COLLNET_ENABLE");
   if (!collnet_enable || strcmp(collnet_enable, "0") == 0) {
     enable = 0;
   }
@@ -1483,7 +1479,7 @@ ncclResult_t ncclFastSocketGetProperties(int dev, T* props) {
   NCCLCHECK(ncclSocketGetSpeed(props->name, &props->speed));
   props->port = 0;
   props->maxComms = 65536;
-  if constexpr (std::is_same<T, ncclNetProperties_v5_t>::value) {
+  if constexpr (std::is_same<T, ncclNetProperties_v6_t>::value) {
     props->latency = 0;
     props->maxRecvs = 1;
   }
@@ -1577,10 +1573,29 @@ volatile ncclNet_v4_t ncclNetPlugin_v4 = {
 
 volatile ncclNet_v5_t ncclNetPlugin_v5 = {
     "FastSocket",           ncclFastSocketInit,
-    ncclFastSocketDevices,  ncclFastSocketGetProperties<ncclNetProperties_v5_t>,
+    ncclFastSocketDevices,  ncclFastSocketGetProperties<ncclNetProperties_v6_t>,
     ncclFastSocketListen,   ncclFastSocketConnect,
     ncclFastSocketAccept,   ncclFastSocketRegMr,
     ncclFastSocketDeregMr,  ncclFastSocketIsend_v5,
     ncclFastSocketIrecv_v5, ncclFastSocketIflush_v5,
     ncclFastSocketTest,     ncclFastSocketClose,
     ncclFastSocketClose,    ncclFastSocketCloseListen};
+
+volatile ncclNet_v6_t ncclNetPlugin_v6 = {
+    "FastSocket",
+    ncclFastSocketInit,
+    ncclFastSocketDevices,
+    ncclFastSocketGetProperties<ncclNetProperties_v6_t>,
+    ncclFastSocketListen,
+    ncclFastSocketConnect,
+    ncclFastSocketAccept,
+    ncclFastSocketRegMr,
+    nullptr,  // No DMA-BUF support
+    ncclFastSocketDeregMr,
+    ncclFastSocketIsend_v5,
+    ncclFastSocketIrecv_v5,
+    ncclFastSocketIflush_v5,
+    ncclFastSocketTest,
+    ncclFastSocketClose,
+    ncclFastSocketClose,
+    ncclFastSocketCloseListen};
