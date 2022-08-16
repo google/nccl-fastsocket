@@ -1561,6 +1561,36 @@ ncclResult_t ncclFastSocketCloseListen(void* opaqueComm) {
   return ncclSuccess;
 }
 
+ncclResult_t ncclFastSocketPtrSupport(int dev, int* supportedTypes) {
+  *supportedTypes = NCCL_PTR_HOST;
+  return ncclSuccess;
+}
+
+ncclResult_t ncclFastSocketFlush(void* recvComm, void* data, int size,
+                                 void* mhandle) {
+  // We don't support CUDA pointers, so we don't need a flush operation
+  return ncclInternalError;
+}
+
+
+volatile ncclNet_v2_t ncclNetPlugin_v2 = {
+    "FastSocket",          ncclFastSocketInit,       ncclFastSocketDevices,
+    ncclFastSocketPciPath, ncclFastSocketPtrSupport, ncclFastSocketListen,
+    ncclFastSocketConnect, ncclFastSocketAccept,     ncclFastSocketRegMr,
+    ncclFastSocketDeregMr, ncclFastSocketIsend_v2,   ncclFastSocketIrecv_v2,
+    ncclFastSocketFlush,   ncclFastSocketTest,       ncclFastSocketClose,
+    ncclFastSocketClose,   ncclFastSocketCloseListen};
+
+volatile ncclNet_v3_t ncclNetPlugin_v3 = {
+    "FastSocket",           ncclFastSocketInit,
+    ncclFastSocketDevices,  ncclFastSocketGetProperties<ncclNetProperties_v3_t>,
+    ncclFastSocketListen,   ncclFastSocketConnect,
+    ncclFastSocketAccept,   ncclFastSocketRegMr,
+    ncclFastSocketDeregMr,  ncclFastSocketIsend_v2,
+    ncclFastSocketIrecv_v2, ncclFastSocketFlush,
+    ncclFastSocketTest,     ncclFastSocketClose,
+    ncclFastSocketClose,    ncclFastSocketCloseListen};
+
 volatile ncclNet_v4_t ncclNetPlugin_v4 = {
     "FastSocket",           ncclFastSocketInit,
     ncclFastSocketDevices,  ncclFastSocketGetProperties<ncclNetProperties_v4_t>,

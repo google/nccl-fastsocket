@@ -24,7 +24,6 @@ cc_library(
 cc_library(
     name = "plugin",
     srcs = [
-        "compat.cc",
         "net_fastsocket.cc",
     ],
     hdrs = [
@@ -51,7 +50,6 @@ cc_library(
 cc_library(
     name = "collnet_plugin",
     srcs = [
-        "compat.cc",
         "net_fastsocket.cc",
     ],
     hdrs = [
