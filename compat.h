@@ -11,8 +11,8 @@
 
 // ncclNet_v2_t: NCCL 2.4 ~ 2.5
 #if NCCL_MAJOR == 2 && (NCCL_MINOR < 4 || NCCL_MINOR > 5)
+
 typedef struct {
-  // Name of the network (mainly for logs)
   const char* name;
   ncclResult_t (*init)(ncclDebugLogger_t logFunction);
   ncclResult_t (*devices)(int* ndev);
@@ -34,10 +34,12 @@ typedef struct {
   ncclResult_t (*close_recv)(void* recvComm);
   ncclResult_t (*close_listen)(void* listenComm);
 } ncclNet_v2_t;
+
 #endif
 
 // ncclNet_v3_t: NCCL 2.6 ~ 2.7
 #if NCCL_MAJOR == 2 && (NCCL_MINOR < 6 || NCCL_MINOR > 7)
+
 typedef ncclNetProperties_v4_t ncclNetProperties_v3_t;
 typedef struct {
   const char* name;
@@ -60,10 +62,12 @@ typedef struct {
   ncclResult_t (*close_recv)(void* recvComm);
   ncclResult_t (*close_listen)(void* listenComm);
 } ncclNet_v3_t;
+
 #endif
 
 // ncclNet_v4_t: NCCL 2.8 ~ 2.13
 #if NCCL_MAJOR == 2 && (NCCL_MINOR < 8 || NCCL_MINOR > 13)
+
 typedef struct {
   const char* name;
   ncclResult_t (*init)(ncclDebugLogger_t logFunction);
@@ -89,10 +93,11 @@ typedef struct {
                          void** mhandle);
   ncclResult_t (*free)(void* mhandle);
 } ncclNet_v4_t;
+
 #endif
 
-// ncclNet_v5_t: NCCL 2.12
-#if NCCL_MAJOR == 2 && NCCL_MINOR != 12
+// ncclNet_v5_t: NCCL 2.12 ~ 2.13
+#if NCCL_MAJOR == 2 && (NCCL_MINOR < 12 || NCCL_MINOR > 13)
 
 typedef struct {
   char* name;      // Used mostly for logging.
@@ -154,10 +159,12 @@ typedef struct {
   ncclResult_t (*close_recv)(void* recvComm);
   ncclResult_t (*close_listen)(void* listenComm);
 } ncclNet_v5_t;
+
 #endif
 
 // ncclNet_v6_t: NCCL 2.13
 #if NCCL_MAJOR == 2 && NCCL_MINOR != 13
+
 typedef ncclNetProperties_v5_t ncclNetProperties_v6_t;
 typedef struct {
   // Name of the network (mainly for logs)
@@ -221,6 +228,7 @@ typedef struct {
   // in which case it should return success and do nothing.
   ncclResult_t (*free)(void* mhandle);
 } ncclNet_v6_t;
+
 #endif
 
 #endif  // THIRD_PARTY_GPUS_NCCL_FASTSOCKET_PLUGIN_COMPAT_H_

@@ -322,7 +322,7 @@ struct ncclBufferedSendSocket {
     cur = 0;
     return ncclSuccess;
   }
-  ncclResult_t send(void* ptr, int s) {
+  ncclResult_t send(void* ptr, unsigned s) {
     if (s > BUF_SIZE) return ncclInternalError;
     if (cur + s > BUF_SIZE) NCCLCHECK(sync());
     memcpy(buf + cur, ptr, s);
@@ -1104,7 +1104,7 @@ static void* persistentSocketThread(void* args_) {
   volatile enum ThreadState* state = &resource->state;
   int nSocksPerThread = comm->num_socks / comm->num_threads;
   int tid = resource->id;
-  int mark = 0;
+  unsigned int mark = 0;
   int core = comm->passive ? kRxCPUStart : kTxCPUStart;
 
   INFO(NCCL_INIT | NCCL_NET, "Comm %p thread %d started", comm, tid);
