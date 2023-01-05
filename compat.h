@@ -9,8 +9,8 @@
 
 #include "nccl_net.h"
 
-// ncclNet_v2_t: NCCL 2.4 ~ 2.5
-#if NCCL_MAJOR == 2 && (NCCL_MINOR < 4 || NCCL_MINOR > 5)
+// ncclNet_v2_t: defined on earliest supported version, removed on 2.6.
+#if (NCCL_MAJOR == 2 && NCCL_MINOR >= 6)
 
 typedef struct {
   const char* name;
@@ -37,8 +37,8 @@ typedef struct {
 
 #endif
 
-// ncclNet_v3_t: NCCL 2.6 ~ 2.7
-#if NCCL_MAJOR == 2 && (NCCL_MINOR < 6 || NCCL_MINOR > 7)
+// ncclNet_v3_t: defined on 2.6, removed on 2.8.
+#if (NCCL_MAJOR == 2 && NCCL_MINOR < 6) || (NCCL_MAJOR == 2 && NCCL_MINOR >= 8)
 
 typedef ncclNetProperties_v4_t ncclNetProperties_v3_t;
 typedef struct {
@@ -65,8 +65,8 @@ typedef struct {
 
 #endif
 
-// ncclNet_v4_t: NCCL 2.8 ~ 2.13
-#if NCCL_MAJOR == 2 && (NCCL_MINOR < 8 || NCCL_MINOR > 13)
+// ncclNet_v4_t: defined on 2.8 , live until now.
+#if NCCL_MAJOR == 2 && NCCL_MINOR < 8
 
 typedef struct {
   const char* name;
@@ -96,8 +96,8 @@ typedef struct {
 
 #endif
 
-// ncclNet_v5_t: NCCL 2.12 ~ 2.13
-#if NCCL_MAJOR == 2 && (NCCL_MINOR < 12 || NCCL_MINOR > 13)
+// ncclNet_v5_t: defined on 2.12, live until now.
+#if NCCL_MAJOR == 2 && NCCL_MINOR < 12
 
 typedef struct {
   char* name;      // Used mostly for logging.
@@ -162,8 +162,8 @@ typedef struct {
 
 #endif
 
-// ncclNet_v6_t: NCCL 2.13
-#if NCCL_MAJOR == 2 && NCCL_MINOR != 13
+// ncclNet_v6_t: defined on 2.13, live until now.
+#if NCCL_MAJOR == 2 && NCCL_MINOR < 13
 
 typedef ncclNetProperties_v5_t ncclNetProperties_v6_t;
 typedef struct {
