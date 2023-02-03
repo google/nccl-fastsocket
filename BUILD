@@ -1,5 +1,13 @@
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_pkg//pkg:deb.bzl", "pkg_deb")
+load("//tools/build_defs/license:license.bzl", "license")
+
+package(default_applicable_licenses = ["//third_party/gpus/nccl_plugins/fastsocket_plugin:license"])
+
+license(
+    name = "license",
+    package_name = "fastsocket_plugin",
+)
 
 # Dual-licensed, using the least restrictive per go/thirdpartylicenses#same
 licenses(["notice"])
