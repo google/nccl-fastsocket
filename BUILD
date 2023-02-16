@@ -1,8 +1,8 @@
 load("@rules_pkg//pkg:tar.bzl", "pkg_tar")
 load("@rules_pkg//pkg:deb.bzl", "pkg_deb")
-load("//tools/build_defs/license:license.bzl", "license")
+load("@rules_license//rules:license.bzl", "license")
 
-package(default_applicable_licenses = ["//third_party/gpus/nccl_plugins/fastsocket_plugin:license"])
+package(default_applicable_licenses = [":license"])
 
 license(
     name = "license",
