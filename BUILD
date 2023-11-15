@@ -41,11 +41,9 @@ cc_library(
     # loaded at runtime via dlopen + dlsym. This means we also need to
     # always link this library, otherwise it'll be dropped at build time.
     linkopts = [
+        "-Wl,--export-dynamic-symbol=ncclNetPlugin_v7",
         "-Wl,--export-dynamic-symbol=ncclNetPlugin_v6",
         "-Wl,--export-dynamic-symbol=ncclNetPlugin_v5",
-        "-Wl,--export-dynamic-symbol=ncclNetPlugin_v4",
-        "-Wl,--export-dynamic-symbol=ncclNetPlugin_v3",
-        "-Wl,--export-dynamic-symbol=ncclNetPlugin_v2",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -67,11 +65,9 @@ cc_library(
     # loaded at runtime via dlopen + dlsym. This means we also need to
     # always link this library, otherwise it'll be dropped at build time.
     linkopts = [
+        "-Wl,--export-dynamic-symbol=ncclNetPlugin_v7",
         "-Wl,--export-dynamic-symbol=ncclNetPlugin_v6",
         "-Wl,--export-dynamic-symbol=ncclNetPlugin_v5",
-        "-Wl,--export-dynamic-symbol=ncclNetPlugin_v4",
-        "-Wl,--export-dynamic-symbol=ncclNetPlugin_v3",
-        "-Wl,--export-dynamic-symbol=ncclNetPlugin_v2",
     ],
     local_defines = ["CHECK_COLLNET_ENABLE"],
     visibility = ["//visibility:public"],

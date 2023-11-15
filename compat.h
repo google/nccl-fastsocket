@@ -40,7 +40,7 @@ typedef struct {
 // ncclNet_v3_t: defined on 2.6, removed on 2.8.
 #if (NCCL_MAJOR == 2 && NCCL_MINOR < 6) || (NCCL_MAJOR == 2 && NCCL_MINOR >= 8)
 
-typedef ncclNetProperties_v4_t ncclNetProperties_v3_t;
+typedef ncclNetProperties_v6_t ncclNetProperties_v3_t;
 typedef struct {
   const char* name;
   ncclResult_t (*init)(ncclDebugLogger_t logFunction);
@@ -65,9 +65,10 @@ typedef struct {
 
 #endif
 
-// ncclNet_v4_t: defined on 2.8 , live until now.
-#if NCCL_MAJOR == 2 && NCCL_MINOR < 8
+// ncclNet_v4_t: defined on 2.8, removed on 2.19.
+#if (NCCL_MAJOR == 2 && NCCL_MINOR < 8) || (NCCL_MAJOR == 2 && NCCL_MINOR >= 19)
 
+typedef ncclNetProperties_v6_t ncclNetProperties_v4_t;
 typedef struct {
   const char* name;
   ncclResult_t (*init)(ncclDebugLogger_t logFunction);
